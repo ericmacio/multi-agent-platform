@@ -1,0 +1,679 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Charte graphique — Multi-Agent Platform (proposition claire)</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Fraunces:opsz,wght@9..144,500;9..144,600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.47.0/tabler-icons.min.css" />
+  <style>
+    :root {
+      /* Fond & surfaces */
+      --bg-page:        #F6F4EE;   /* Perle — fond général */
+      --bg-surface:     #FFFFFF;   /* Cartes, panneaux */
+      --bg-elevated:    #FFFFFF;   /* Modales, dropdowns */
+      --bg-subtle:      #EEF0FF;   /* Fond doux d'accent (hover, badges) */
+      --bg-dark:        #0F1B2D;   /* Sidebar, nav — surface sombre */
+      --bg-dark-2:      #16263D;   /* Sidebar hover, header sombre */
+
+      /* Bordures */
+      --border:         #E6E1D6;   /* Bordure douce sur fond clair */
+      --border-strong:  #D6D0C2;
+      --border-dark:    #1F3352;   /* Séparation dans zones sombres */
+      --border-focus:   #4F46E5;
+
+      /* Texte sur fond clair */
+      --text-primary:   #0F1B2D;   /* Encre — titres, texte fort */
+      --text-secondary: #4A5A6A;   /* Ardoise — texte courant */
+      --text-muted:     #8A97AB;   /* Nuage — métadonnées */
+      --text-disabled:  #C6CDD8;
+
+      /* Texte sur fond sombre */
+      --text-on-dark:   #F1F3F8;
+      --text-on-dark-2: #A7B4C7;
+      --text-on-dark-3: #6E7E96;
+
+      /* Signature — Indigo */
+      --accent:         #4F46E5;
+      --accent-hover:   #4338CA;
+      --accent-bg:      #EEF0FF;
+      --accent-dim:     #C7D0FF;
+
+      /* Sémantiques */
+      --success:        #059669;
+      --success-bg:     #E6F7EF;
+      --info:           #2563EB;
+      --info-bg:        #E7EEFE;
+      --warning:        #B45309;
+      --warning-bg:     #FEF3D7;
+      --danger:         #B91C1C;
+      --danger-bg:      #FDECEC;
+
+      /* Typo */
+      --font-voice: 'Fraunces', ui-serif, Georgia, serif;    /* Titres */
+      --font-sans:  'Inter', system-ui, -apple-system, sans-serif; /* Corps */
+      --font-mono:  'JetBrains Mono', 'Fira Code', monospace;
+
+      /* Rayons & ombres */
+      --radius-sm: 6px;
+      --radius-md: 8px;
+      --radius-lg: 12px;
+      --shadow-sm: 0 1px 2px rgba(15, 27, 45, 0.04);
+      --shadow-md: 0 4px 12px rgba(15, 27, 45, 0.06);
+      --shadow-lg: 0 12px 32px rgba(15, 27, 45, 0.10);
+    }
+
+    * { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; }
+    body {
+      background: var(--bg-page);
+      color: var(--text-primary);
+      font-family: var(--font-sans);
+      font-size: 15px;
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .container { max-width: 1120px; margin: 0 auto; padding: 48px 24px 80px; }
+    h1 { font-family: var(--font-voice); font-weight: 600; font-size: 40px; line-height: 1.15; letter-spacing: -0.01em; margin: 0 0 8px; }
+    h2 { font-family: var(--font-voice); font-weight: 600; font-size: 24px; margin: 40px 0 4px; letter-spacing: -0.01em; }
+    h3 { font-family: var(--font-sans); font-weight: 600; font-size: 15px; margin: 0 0 14px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); }
+    p.lead { color: var(--text-secondary); font-size: 17px; margin: 0 0 12px; max-width: 68ch; }
+    p.section-note { color: var(--text-secondary); margin: 0 0 20px; max-width: 72ch; }
+    hr.sep { border: 0; border-top: 1px solid var(--border); margin: 32px 0; }
+    code { font-family: var(--font-mono); background: var(--bg-subtle); color: var(--accent); padding: 1px 6px; border-radius: 4px; font-size: 13px; }
+
+    /* --------- Palette --------- */
+    .palette { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; }
+    .swatch { background: var(--bg-surface); border: 1px solid var(--border); border-radius: var(--radius-lg); overflow: hidden; box-shadow: var(--shadow-sm); }
+    .swatch .chip { height: 72px; }
+    .swatch .meta { padding: 10px 12px 12px; }
+    .swatch .meta .name { font-size: 13px; font-weight: 600; margin: 0; }
+    .swatch .meta .hex  { font-family: var(--font-mono); font-size: 12px; color: var(--text-secondary); margin: 2px 0 0; }
+    .swatch .meta .use  { font-size: 11px; color: var(--text-muted); margin: 4px 0 0; }
+    .swatch.dark .name  { color: var(--text-primary); }
+
+    /* --------- Cards utilitaires --------- */
+    .card { background: var(--bg-surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 20px 22px; box-shadow: var(--shadow-sm); }
+    .card + .card { margin-top: 16px; }
+
+    /* --------- Typo demo --------- */
+    .typo-row + .typo-row { margin-top: 6px; }
+    .display-h1 { font-family: var(--font-voice); font-weight: 600; font-size: 44px; line-height: 1.1; margin: 0; letter-spacing: -0.02em; }
+    .display-h2 { font-family: var(--font-voice); font-weight: 600; font-size: 30px; margin: 0; letter-spacing: -0.01em; }
+    .display-h3 { font-family: var(--font-sans);  font-weight: 600; font-size: 20px; margin: 0; }
+    .display-body { font-size: 16px; margin: 0; color: var(--text-primary); }
+    .display-small { font-size: 13px; margin: 0; color: var(--text-secondary); }
+    .display-mono { font-family: var(--font-mono); font-size: 13px; margin: 0; color: var(--accent); }
+
+    /* --------- Boutons --------- */
+    .btn { display: inline-flex; align-items: center; gap: 8px; font-family: var(--font-sans); font-weight: 500; font-size: 14px; border-radius: var(--radius-md); padding: 9px 16px; border: 1px solid transparent; cursor: pointer; transition: background 120ms ease, border-color 120ms ease, color 120ms ease; }
+    .btn-primary   { background: var(--accent); color: #fff; }
+    .btn-primary:hover   { background: var(--accent-hover); }
+    .btn-secondary { background: transparent; color: var(--text-primary); border-color: var(--border-strong); }
+    .btn-secondary:hover { background: var(--bg-subtle); border-color: var(--accent-dim); }
+    .btn-ghost     { background: transparent; color: var(--accent); padding-left: 8px; padding-right: 8px; }
+    .btn-ghost:hover { background: var(--bg-subtle); }
+    .btn-danger    { background: transparent; color: var(--danger); border-color: #F4CFCF; }
+    .btn-danger:hover { background: var(--danger-bg); }
+    .btn-on-dark   { background: rgba(255,255,255,0.08); color: var(--text-on-dark); border-color: rgba(255,255,255,0.14); }
+    .btn-on-dark:hover { background: rgba(255,255,255,0.14); }
+
+    .btn-row { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+
+    /* --------- Tags & badges --------- */
+    .tag { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 500; padding: 4px 10px; border-radius: 999px; }
+    .tag-accent   { background: var(--accent-bg); color: var(--accent); }
+    .tag-success  { background: var(--success-bg); color: var(--success); }
+    .tag-info     { background: var(--info-bg); color: var(--info); }
+    .tag-warning  { background: var(--warning-bg); color: var(--warning); }
+    .tag-danger   { background: var(--danger-bg); color: var(--danger); }
+    .tag-neutral  { background: #EFEBE1; color: var(--text-secondary); }
+
+    /* --------- Champs de formulaire --------- */
+    .field { display: flex; flex-direction: column; gap: 6px; }
+    .field label { font-size: 13px; font-weight: 500; color: var(--text-secondary); }
+    .field input, .field select, .field textarea {
+      font-family: var(--font-sans); font-size: 14px; color: var(--text-primary);
+      background: var(--bg-surface); border: 1px solid var(--border-strong); border-radius: var(--radius-md);
+      padding: 9px 12px; outline: none; transition: border-color 120ms ease, box-shadow 120ms ease;
+    }
+    .field input:focus, .field select:focus, .field textarea:focus {
+      border-color: var(--border-focus);
+      box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.15);
+    }
+    .field .hint { font-size: 12px; color: var(--text-muted); }
+
+    /* --------- Layout sombre + clair — l'alternance --------- */
+    .layout {
+      display: grid;
+      grid-template-columns: 240px 1fr;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      overflow: hidden;
+      background: var(--bg-surface);
+      box-shadow: var(--shadow-md);
+    }
+    .sidebar {
+      background: var(--bg-dark);
+      color: var(--text-on-dark);
+      padding: 18px 14px;
+      min-height: 380px;
+      border-right: 1px solid var(--border-dark);
+    }
+    .sidebar .brand {
+      display: flex; align-items: center; gap: 10px;
+      padding: 4px 10px 18px;
+    }
+    .sidebar .brand-mark {
+      width: 28px; height: 28px; border-radius: 8px;
+      background: linear-gradient(135deg, #6C63FF 0%, #4F46E5 100%);
+      display: flex; align-items: center; justify-content: center;
+      color: #fff; font-family: var(--font-voice); font-weight: 600;
+    }
+    .sidebar .brand-name { font-weight: 600; font-size: 15px; }
+    .sidebar .brand-sub  { display: block; font-size: 11px; color: var(--text-on-dark-3); font-weight: 400; }
+    .nav-group-title { font-size: 11px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text-on-dark-3); margin: 14px 10px 6px; }
+    .nav-item {
+      display: flex; align-items: center; gap: 10px;
+      padding: 8px 10px; border-radius: 8px;
+      color: var(--text-on-dark-2); font-size: 14px;
+      cursor: pointer;
+    }
+    .nav-item i { font-size: 18px; }
+    .nav-item:hover { background: var(--bg-dark-2); color: var(--text-on-dark); }
+    .nav-item.active {
+      background: linear-gradient(90deg, rgba(79,70,229,0.28) 0%, rgba(79,70,229,0.10) 100%);
+      color: #fff;
+      box-shadow: inset 3px 0 0 var(--accent);
+    }
+    .nav-item .count { margin-left: auto; font-size: 11px; background: rgba(255,255,255,0.08); border-radius: 999px; padding: 1px 8px; color: var(--text-on-dark-2); }
+
+    .content {
+      background: var(--bg-page);
+      padding: 22px 24px;
+    }
+    .topbar {
+      display: flex; align-items: center; gap: 12px;
+      background: var(--bg-surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: 8px 12px;
+      margin-bottom: 18px;
+    }
+    .topbar .search {
+      flex: 1; display: flex; align-items: center; gap: 8px; color: var(--text-muted); font-size: 13px;
+    }
+    .topbar .search input {
+      flex: 1; border: 0; outline: 0; background: transparent; font-family: var(--font-sans); font-size: 14px; color: var(--text-primary);
+    }
+    .avatar { width: 30px; height: 30px; border-radius: 999px; background: var(--accent-bg); color: var(--accent); display: flex; align-items: center; justify-content: center; font-weight: 600; font-size: 13px; }
+
+    /* Agent cards inside content */
+    .agent-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px; }
+    .agent-card {
+      background: var(--bg-surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 16px 18px;
+      transition: border-color 120ms ease, box-shadow 120ms ease, transform 120ms ease;
+    }
+    .agent-card:hover { border-color: var(--accent-dim); box-shadow: var(--shadow-md); transform: translateY(-1px); }
+    .agent-card .head { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+    .agent-card .icon {
+      width: 36px; height: 36px; border-radius: 8px;
+      background: var(--accent-bg); color: var(--accent);
+      display: flex; align-items: center; justify-content: center;
+    }
+    .agent-card .title { font-weight: 600; margin: 0; font-size: 15px; }
+    .agent-card .desc  { color: var(--text-secondary); font-size: 13px; margin: 0 0 12px; line-height: 1.55; }
+    .agent-card .foot  { display: flex; align-items: center; gap: 6px; }
+
+    /* --------- Chat preview --------- */
+    .chat {
+      background: var(--bg-surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      overflow: hidden;
+      display: grid; grid-template-rows: auto 1fr auto;
+      min-height: 320px;
+    }
+    .chat-head {
+      background: var(--bg-dark);
+      color: var(--text-on-dark);
+      padding: 12px 16px;
+      display: flex; align-items: center; gap: 10px;
+    }
+    .chat-head .status-dot { width: 8px; height: 8px; border-radius: 999px; background: #22c55e; box-shadow: 0 0 0 3px rgba(34,197,94,0.18); }
+    .chat-head small { color: var(--text-on-dark-3); font-size: 12px; }
+    .chat-body { padding: 16px; display: flex; flex-direction: column; gap: 10px; background: var(--bg-page); }
+    .bubble { max-width: 78%; padding: 10px 14px; border-radius: 14px; font-size: 14px; line-height: 1.5; }
+    .bubble.user { align-self: flex-end; background: var(--accent); color: #fff; border-bottom-right-radius: 4px; }
+    .bubble.agent { align-self: flex-start; background: var(--bg-surface); color: var(--text-primary); border: 1px solid var(--border); border-bottom-left-radius: 4px; }
+    .chat-foot {
+      padding: 10px 12px; border-top: 1px solid var(--border);
+      display: flex; align-items: center; gap: 10px; background: var(--bg-surface);
+    }
+    .chat-foot input {
+      flex: 1; border: 1px solid var(--border-strong); border-radius: var(--radius-md);
+      padding: 9px 12px; font-family: var(--font-sans); font-size: 14px; outline: none;
+    }
+    .chat-foot input:focus { border-color: var(--border-focus); box-shadow: 0 0 0 3px rgba(79,70,229,0.15); }
+
+    /* --------- Grid & spacing demo --------- */
+    .spacing-row { display: flex; align-items: flex-end; gap: 12px; margin: 12px 0 4px; }
+    .spacing-row div { background: var(--accent); }
+    .radius-row { display: flex; align-items: center; gap: 16px; }
+    .radius-row div { background: var(--accent-bg); border: 1px solid var(--accent-dim); width: 56px; height: 56px; display: flex; align-items: center; justify-content: center; font-family: var(--font-mono); font-size: 11px; color: var(--accent); }
+
+    /* --------- Table simple --------- */
+    table.demo { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 14px; }
+    table.demo thead th { text-align: left; font-weight: 600; font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); padding: 8px 12px; border-bottom: 1px solid var(--border); }
+    table.demo tbody td { padding: 12px; border-bottom: 1px solid var(--border); color: var(--text-primary); }
+    table.demo tbody tr:hover td { background: var(--bg-subtle); }
+
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+    @media (max-width: 720px) { .grid-2 { grid-template-columns: 1fr; } .layout { grid-template-columns: 1fr; } .sidebar { min-height: auto; } }
+  </style>
+</head>
+<body>
+  <div class="container">
+
+    <header>
+      <p style="margin: 0 0 4px; font-family: var(--font-mono); font-size: 12px; color: var(--accent); text-transform: uppercase; letter-spacing: 0.12em;">Proposition · v1</p>
+      <h1>Charte graphique — thème « Clarté »</h1>
+      <p class="lead">
+        Une alternative au thème <em>Dark Professional</em> actuel : fond principal clair et chaleureux
+        (Perle), navigation sombre (Encre) pour ancrer l'interface, accent Indigo pour les actions.
+        L'alternance clair / sombre crée du contraste et de la respiration sans sacrifier le sérieux.
+      </p>
+    </header>
+
+    <hr class="sep" />
+
+    <!-- ================= Palette ================= -->
+    <section>
+      <h2>1 · Palette</h2>
+      <p class="section-note">Toutes les couleurs sont exposées comme variables CSS (<code>--color-*</code>) et consommées via Tailwind. Ne jamais coder un hexadécimal en dur dans un composant.</p>
+
+      <h3>Fonds & surfaces</h3>
+      <div class="palette">
+        <div class="swatch"><div class="chip" style="background:#F6F4EE;"></div>
+          <div class="meta"><p class="name">Perle</p><p class="hex">#F6F4EE</p><p class="use">Fond de page principal (clair)</p></div></div>
+        <div class="swatch"><div class="chip" style="background:#FFFFFF; border-bottom:1px solid var(--border);"></div>
+          <div class="meta"><p class="name">Blanc</p><p class="hex">#FFFFFF</p><p class="use">Cartes, panneaux, modales</p></div></div>
+        <div class="swatch"><div class="chip" style="background:#EEF0FF;"></div>
+          <div class="meta"><p class="name">Indigo pâle</p><p class="hex">#EEF0FF</p><p class="use">Hover, badges, surface d'accent</p></div></div>
+        <div class="swatch dark"><div class="chip" style="background:#0F1B2D;"></div>
+          <div class="meta"><p class="name">Encre nuit</p><p class="hex">#0F1B2D</p><p class="use">Sidebar, header, surfaces sombres</p></div></div>
+        <div class="swatch dark"><div class="chip" style="background:#16263D;"></div>
+          <div class="meta"><p class="name">Encre hover</p><p class="hex">#16263D</p><p class="use">Élément de navigation survolé</p></div></div>
+      </div>
+
+      <h3 style="margin-top: 28px;">Texte</h3>
+      <div class="palette">
+        <div class="swatch"><div class="chip" style="background:#0F1B2D;"></div>
+          <div class="meta"><p class="name">Encre</p><p class="hex">#0F1B2D</p><p class="use">Titres, texte fort sur clair</p></div></div>
+        <div class="swatch"><div class="chip" style="background:#4A5A6A;"></div>
+          <div class="meta"><p class="name">Ardoise</p><p class="hex">#4A5A6A</p><p class="use">Texte courant, descriptions</p></div></div>
+        <div class="swatch"><div class="chip" style="background:#8A97AB;"></div>
+          <div class="meta"><p class="name">Nuage</p><p class="hex">#8A97AB</p><p class="use">Métadonnées, placeholders</p></div></div>
+        <div class="swatch"><div class="chip" style="background:#C6CDD8;"></div>
+          <div class="meta"><p class="name">Brume</p><p class="hex">#C6CDD8</p><p class="use">Texte désactivé</p></div></div>
+      </div>
+
+      <h3 style="margin-top: 28px;">Accent & sémantiques</h3>
+      <div class="palette">
+        <div class="swatch"><div class="chip" style="background:#4F46E5;"></div>
+          <div class="meta"><p class="name">Indigo</p><p class="hex">#4F46E5</p><p class="use">Accent · CTA · liens</p></div></div>
+        <div class="swatch"><div class="chip" style="background:#059669;"></div>
+          <div class="meta"><p class="name">Émeraude</p><p class="hex">#059669</p><p class="use">Succès · agent actif</p></div></div>
+        <div class="swatch"><div class="chip" style="background:#2563EB;"></div>
+          <div class="meta"><p class="name">Bleu info</p><p class="hex">#2563EB</p><p class="use">Information · tags modèles</p></div></div>
+        <div class="swatch"><div class="chip" style="background:#B45309;"></div>
+          <div class="meta"><p class="name">Ambre</p><p class="hex">#B45309</p><p class="use">Avertissement · rate limit</p></div></div>
+        <div class="swatch"><div class="chip" style="background:#B91C1C;"></div>
+          <div class="meta"><p class="name">Grenat</p><p class="hex">#B91C1C</p><p class="use">Erreur · agent en échec</p></div></div>
+      </div>
+    </section>
+
+    <!-- ================= Typographie ================= -->
+    <section>
+      <h2>2 · Typographie</h2>
+      <p class="section-note">Trois familles pour trois voix distinctes : <strong>Fraunces</strong> apporte du caractère aux titres, <strong>Inter</strong> reste neutre et lisible pour le corps, <strong>JetBrains Mono</strong> pour les identifiants, tokens et blocs de code.</p>
+      <div class="card">
+        <p class="display-small" style="margin-bottom: 12px;">Titres — Fraunces · Corps — Inter · Technique — JetBrains Mono</p>
+        <div style="border-top: 1px solid var(--border); padding-top: 16px;">
+          <p class="display-h1 typo-row">Aa — H1 · 44 px / 1.1</p>
+          <p class="display-h2 typo-row">Aa — H2 · 30 px / 1.2</p>
+          <p class="display-h3 typo-row">Aa — H3 · 20 px / 1.35</p>
+          <p class="display-body typo-row" style="margin-top:10px;">Corps de texte — Inter Regular · 16 px · interligne 1.6</p>
+          <p class="display-small typo-row">Légende / mention — Inter · 13 px</p>
+          <p class="display-mono typo-row" style="margin-top:6px;">agent_id · 7c7e1a2c-2db8-4a3e — Mono 13 px</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= Espacements & rayons ================= -->
+    <section>
+      <h2>3 · Espacements & rayons</h2>
+      <p class="section-note">Grille de <code>4 px</code> : 4 · 8 · 12 · 16 · 24 · 32 · 48 · 64. Rayons harmonisés : <code>6 px</code> (petits éléments), <code>8 px</code> (boutons, inputs), <code>12 px</code> (cartes, modales).</p>
+      <div class="grid-2">
+        <div class="card">
+          <p class="display-small" style="margin: 0 0 6px;">Échelle d'espacement</p>
+          <div class="spacing-row">
+            <div style="width:4px;height:4px;"></div>
+            <div style="width:8px;height:8px;"></div>
+            <div style="width:12px;height:12px;"></div>
+            <div style="width:16px;height:16px;"></div>
+            <div style="width:24px;height:24px;"></div>
+            <div style="width:32px;height:32px;"></div>
+            <div style="width:48px;height:48px;"></div>
+            <div style="width:64px;height:64px;"></div>
+          </div>
+        </div>
+        <div class="card">
+          <p class="display-small" style="margin: 0 0 12px;">Rayons de bordure</p>
+          <div class="radius-row">
+            <div style="border-radius:6px;">6</div>
+            <div style="border-radius:8px;">8</div>
+            <div style="border-radius:12px;">12</div>
+            <div style="border-radius:999px;">∞</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= Boutons ================= -->
+    <section>
+      <h2>4 · Boutons</h2>
+      <p class="section-note">Un unique accent (Indigo). Le bouton principal est plein, le secondaire est un contour, le tertiaire est un lien. La variante <em>on dark</em> permet un bouton lisible dans la sidebar.</p>
+      <div class="card">
+        <p class="display-small" style="margin: 0 0 12px;">Sur fond clair</p>
+        <div class="btn-row" style="margin-bottom: 20px;">
+          <button class="btn btn-primary"><i class="ti ti-plus"></i> Créer un agent</button>
+          <button class="btn btn-secondary">Annuler</button>
+          <button class="btn btn-ghost">Voir les détails →</button>
+          <button class="btn btn-danger"><i class="ti ti-trash"></i> Supprimer</button>
+          <button class="btn btn-primary" disabled style="opacity:0.5; cursor:not-allowed;">Envoyer</button>
+        </div>
+        <p class="display-small" style="margin: 0 0 12px;">Sur fond sombre (sidebar / header)</p>
+        <div class="btn-row" style="background: var(--bg-dark); padding: 12px 14px; border-radius: var(--radius-md);">
+          <button class="btn btn-primary"><i class="ti ti-message-plus"></i> Nouveau chat</button>
+          <button class="btn btn-on-dark"><i class="ti ti-settings"></i> Paramètres</button>
+          <button class="btn btn-ghost" style="color: var(--accent-dim);">Docs →</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= Tags / badges ================= -->
+    <section>
+      <h2>5 · Tags & badges</h2>
+      <p class="section-note">Format capsule (rayon 999 px). Le fond est une teinte pâle de la couleur sémantique, le texte reprend la couleur pleine — contraste AA garanti.</p>
+      <div class="card">
+        <div class="btn-row">
+          <span class="tag tag-accent"><i class="ti ti-sparkles"></i> Accent</span>
+          <span class="tag tag-success"><i class="ti ti-circle-check"></i> Actif</span>
+          <span class="tag tag-info"><i class="ti ti-cpu"></i> gpt-4o-mini</span>
+          <span class="tag tag-warning"><i class="ti ti-alert-triangle"></i> Rate limit</span>
+          <span class="tag tag-danger"><i class="ti ti-x"></i> Échec</span>
+          <span class="tag tag-neutral">Brouillon</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= Champs & formulaires ================= -->
+    <section>
+      <h2>6 · Champs de formulaire</h2>
+      <p class="section-note">Focus visible sur toutes les surfaces (halo Indigo à 15 %) — répond aux exigences A11y du projet.</p>
+      <div class="card grid-2">
+        <div class="field">
+          <label for="agent-name">Nom de l'agent</label>
+          <input id="agent-name" type="text" value="Assistant fiscal" />
+          <span class="hint">32 caractères maximum, unique par utilisateur.</span>
+        </div>
+        <div class="field">
+          <label for="agent-model">Modèle LLM</label>
+          <select id="agent-model">
+            <option>gpt-4o-mini</option>
+            <option>gpt-4o</option>
+            <option>claude-sonnet-4-6</option>
+          </select>
+          <span class="hint">Par défaut : modèle configuré au niveau plateforme.</span>
+        </div>
+        <div class="field" style="grid-column: 1 / -1;">
+          <label for="agent-prompt">Prompt système</label>
+          <textarea id="agent-prompt" rows="3">Tu es un assistant spécialisé en fiscalité française pour les TPE / PME…</textarea>
+          <span class="hint">1024 caractères maximum.</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= Carte d'agent ================= -->
+    <section>
+      <h2>7 · Cartes d'agent</h2>
+      <p class="section-note">Le composant central des pages "Mes agents". Fond blanc, bordure douce, hover subtil (bordure Indigo + ombre + translation de 1 px).</p>
+      <div class="agent-grid">
+        <div class="agent-card">
+          <div class="head">
+            <div class="icon"><i class="ti ti-sparkles"></i></div>
+            <p class="title">Assistant fiscal</p>
+          </div>
+          <p class="desc">Répond aux questions de comptabilité et fiscalité pour les TPE / PME françaises.</p>
+          <div class="foot">
+            <span class="tag tag-success"><i class="ti ti-circle-check"></i> Actif</span>
+            <span class="tag tag-info">gpt-4o-mini</span>
+          </div>
+        </div>
+        <div class="agent-card">
+          <div class="head">
+            <div class="icon"><i class="ti ti-code"></i></div>
+            <p class="title">Reviewer de code</p>
+          </div>
+          <p class="desc">Analyse les pull requests et propose des commentaires structurés selon nos conventions.</p>
+          <div class="foot">
+            <span class="tag tag-success"><i class="ti ti-circle-check"></i> Actif</span>
+            <span class="tag tag-info">claude-sonnet-4-6</span>
+            <span class="tag tag-accent"><i class="ti ti-users"></i> Team</span>
+          </div>
+        </div>
+        <div class="agent-card">
+          <div class="head">
+            <div class="icon" style="background: var(--warning-bg); color: var(--warning);"><i class="ti ti-alert-triangle"></i></div>
+            <p class="title">Support niveau 1</p>
+          </div>
+          <p class="desc">Traite les tickets entrants et escalade au niveau 2 si nécessaire.</p>
+          <div class="foot">
+            <span class="tag tag-warning"><i class="ti ti-alert-triangle"></i> Rate limit</span>
+            <span class="tag tag-info">gpt-4o-mini</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= Layout — l'alternance clair / sombre ================= -->
+    <section>
+      <h2>8 · Composition d'écran — l'alternance</h2>
+      <p class="section-note">Le principe directeur : sidebar sombre (ancrage, orientation), zone de travail claire (respiration, lecture). Les cartes internes sont blanches sur fond Perle pour créer une seconde profondeur.</p>
+
+      <div class="layout">
+        <aside class="sidebar">
+          <div class="brand">
+            <div class="brand-mark">M</div>
+            <div>
+              <span class="brand-name">Multi-Agent</span>
+              <span class="brand-sub">Platform</span>
+            </div>
+          </div>
+          <div class="nav-group-title">Espace de travail</div>
+          <div class="nav-item"><i class="ti ti-home"></i> Accueil</div>
+          <div class="nav-item active"><i class="ti ti-robot"></i> Mes agents <span class="count">7</span></div>
+          <div class="nav-item"><i class="ti ti-messages"></i> Conversations <span class="count">12</span></div>
+          <div class="nav-item"><i class="ti ti-tools"></i> Outils</div>
+          <div class="nav-item"><i class="ti ti-server"></i> Serveurs MCP</div>
+          <div class="nav-group-title">Administration</div>
+          <div class="nav-item"><i class="ti ti-users"></i> Utilisateurs</div>
+          <div class="nav-item"><i class="ti ti-key"></i> Clés API</div>
+          <div class="nav-item"><i class="ti ti-gauge"></i> Rate limit</div>
+        </aside>
+        <main class="content">
+          <div class="topbar">
+            <div class="search">
+              <i class="ti ti-search"></i>
+              <input placeholder="Rechercher un agent, une conversation…" />
+            </div>
+            <button class="btn btn-secondary" style="padding: 6px 12px;"><i class="ti ti-plus"></i> Nouveau</button>
+            <div class="avatar" title="Eric M.">EM</div>
+          </div>
+
+          <p class="display-h3" style="margin: 6px 0 12px;">Mes agents</p>
+          <div class="agent-grid">
+            <div class="agent-card">
+              <div class="head">
+                <div class="icon"><i class="ti ti-sparkles"></i></div>
+                <p class="title">Assistant fiscal</p>
+              </div>
+              <p class="desc">Comptabilité et fiscalité TPE / PME françaises.</p>
+              <div class="foot">
+                <span class="tag tag-success"><i class="ti ti-circle-check"></i> Actif</span>
+              </div>
+            </div>
+            <div class="agent-card">
+              <div class="head">
+                <div class="icon"><i class="ti ti-code"></i></div>
+                <p class="title">Reviewer de code</p>
+              </div>
+              <p class="desc">Analyse les pull requests selon nos conventions.</p>
+              <div class="foot">
+                <span class="tag tag-success"><i class="ti ti-circle-check"></i> Actif</span>
+              </div>
+            </div>
+          </div>
+        </main>
+      </div>
+    </section>
+
+    <!-- ================= Menu — variantes ================= -->
+    <section>
+      <h2>9 · Éléments de menu</h2>
+      <p class="section-note">Trois états : <em>défaut</em>, <em>hover</em>, <em>actif</em>. L'état actif ajoute une barre latérale Indigo et un léger dégradé horizontal pour ancrer visuellement la page en cours.</p>
+      <div class="card" style="background: var(--bg-dark); border-color: var(--border-dark); padding: 14px; max-width: 280px;">
+        <div class="nav-item"><i class="ti ti-home"></i> Défaut</div>
+        <div class="nav-item" style="background: var(--bg-dark-2); color: var(--text-on-dark);"><i class="ti ti-robot"></i> Survolé</div>
+        <div class="nav-item active"><i class="ti ti-messages"></i> Actif <span class="count">12</span></div>
+      </div>
+    </section>
+
+    <!-- ================= Chat preview ================= -->
+    <section>
+      <h2>10 · Aperçu — surface de chat</h2>
+      <p class="section-note">Header sombre (identité de l'agent, statut streaming), corps clair (lisibilité des messages), input blanc au repos.</p>
+      <div class="chat">
+        <div class="chat-head">
+          <div class="brand-mark" style="width:26px; height:26px; font-size:13px;">A</div>
+          <div>
+            <div style="font-weight: 600; font-size: 14px;">Assistant fiscal</div>
+            <small>gpt-4o-mini · en cours de réponse</small>
+          </div>
+          <span class="status-dot" style="margin-left:auto;"></span>
+        </div>
+        <div class="chat-body">
+          <div class="bubble user">Quels sont les seuils du régime micro-BIC en 2026 ?</div>
+          <div class="bubble agent">En 2026, le seuil du régime micro-BIC est de <strong>188 700 €</strong> pour les activités de vente et de <strong>77 700 €</strong> pour les prestations de services…</div>
+          <div class="bubble agent" style="color: var(--text-muted); font-style: italic;">L'assistant est en train d'écrire…</div>
+        </div>
+        <div class="chat-foot">
+          <input placeholder="Écrire un message…" />
+          <button class="btn btn-primary"><i class="ti ti-send"></i> Envoyer</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= Tableau ================= -->
+    <section>
+      <h2>11 · Tableau — listes admin</h2>
+      <p class="section-note">Séparateurs discrets, en-têtes en petits capitales, hover Indigo pâle pour la ligne active. Pas de zébrure.</p>
+      <div class="card" style="padding: 4px 0;">
+        <table class="demo">
+          <thead>
+            <tr><th style="padding-left: 20px;">Utilisateur</th><th>Rôle</th><th>État</th><th>Créé le</th><th></th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td style="padding-left: 20px;">alice@example.com</td>
+              <td><span class="tag tag-accent">ADMIN</span></td>
+              <td><span class="tag tag-success"><i class="ti ti-circle-check"></i> Actif</span></td>
+              <td>2026-03-11</td>
+              <td style="text-align:right; padding-right: 20px;"><button class="btn btn-ghost"><i class="ti ti-dots"></i></button></td>
+            </tr>
+            <tr>
+              <td style="padding-left: 20px;">bob@example.com</td>
+              <td><span class="tag tag-neutral">STANDARD</span></td>
+              <td><span class="tag tag-warning">Désactivé</span></td>
+              <td>2026-01-04</td>
+              <td style="text-align:right; padding-right: 20px;"><button class="btn btn-ghost"><i class="ti ti-dots"></i></button></td>
+            </tr>
+            <tr>
+              <td style="padding-left: 20px;">carol@example.com</td>
+              <td><span class="tag tag-neutral">STANDARD</span></td>
+              <td><span class="tag tag-success"><i class="ti ti-circle-check"></i> Actif</span></td>
+              <td>2026-07-22</td>
+              <td style="text-align:right; padding-right: 20px;"><button class="btn btn-ghost"><i class="ti ti-dots"></i></button></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ================= Migration / mapping ================= -->
+    <section>
+      <h2>12 · Migration depuis le thème actuel</h2>
+      <p class="section-note">Les variables du thème sombre actuel sont conservées en nom, seule la valeur change. Aucun composant à réécrire.</p>
+      <div class="card" style="padding: 0;">
+        <table class="demo">
+          <thead>
+            <tr>
+              <th style="padding-left: 20px;">Variable</th>
+              <th>Ancien (dark)</th>
+              <th>Nouveau (clarté)</th>
+              <th>Usage</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td style="padding-left:20px;"><code>--color-bg-base</code></td><td><code>#0F0F14</code></td><td><code>#F6F4EE</code></td><td>Fond de page</td></tr>
+            <tr><td style="padding-left:20px;"><code>--color-bg-surface</code></td><td><code>#16161E</code></td><td><code>#FFFFFF</code></td><td>Cartes, panneaux</td></tr>
+            <tr><td style="padding-left:20px;"><code>--color-bg-elevated</code></td><td><code>#1C1C26</code></td><td><code>#FFFFFF</code></td><td>Modales, dropdowns</td></tr>
+            <tr><td style="padding-left:20px;"><code>--color-bg-subtle</code></td><td><code>#1A1728</code></td><td><code>#EEF0FF</code></td><td>Surface accent</td></tr>
+            <tr><td style="padding-left:20px;"><code>--color-border-default</code></td><td><code>#2A2A3A</code></td><td><code>#E6E1D6</code></td><td>Bordure standard</td></tr>
+            <tr><td style="padding-left:20px;"><code>--color-text-primary</code></td><td><code>#E8E8F0</code></td><td><code>#0F1B2D</code></td><td>Titres, texte fort</td></tr>
+            <tr><td style="padding-left:20px;"><code>--color-text-secondary</code></td><td><code>#A0A0B8</code></td><td><code>#4A5A6A</code></td><td>Descriptions</td></tr>
+            <tr><td style="padding-left:20px;"><code>--color-text-muted</code></td><td><code>#7B7B99</code></td><td><code>#8A97AB</code></td><td>Métadonnées</td></tr>
+            <tr><td style="padding-left:20px;"><code>--color-accent</code></td><td><code>#A78BFA</code></td><td><code>#4F46E5</code></td><td>CTA, liens</td></tr>
+            <tr><td style="padding-left:20px;"><code>--color-accent-bg</code></td><td><code>#1E1B2E</code></td><td><code>#EEF0FF</code></td><td>Badges, hover accent</td></tr>
+            <tr><td style="padding-left:20px;"><code>--color-success</code></td><td><code>#34D399</code></td><td><code>#059669</code></td><td>OK · agent actif</td></tr>
+            <tr><td style="padding-left:20px;"><code>--color-info</code></td><td><code>#60A5FA</code></td><td><code>#2563EB</code></td><td>Info · modèle</td></tr>
+            <tr><td style="padding-left:20px;"><code>--color-warning</code></td><td><code>#FBBF24</code></td><td><code>#B45309</code></td><td>Avertissement</td></tr>
+            <tr><td style="padding-left:20px;"><code>--color-danger</code></td><td><code>#F87171</code></td><td><code>#B91C1C</code></td><td>Erreur</td></tr>
+            <tr><td style="padding-left:20px;"><code>--font-sans</code></td><td><code>Geist</code></td><td><code>Inter</code></td><td>Corps de texte</td></tr>
+            <tr><td style="padding-left:20px;"><code>--font-voice</code> <em>(nouveau)</em></td><td>—</td><td><code>Fraunces</code></td><td>Titres H1 / H2</td></tr>
+            <tr><td style="padding-left:20px;"><code>--font-mono</code></td><td><code>Geist Mono</code></td><td><code>JetBrains Mono</code></td><td>IDs, code</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="section-note" style="margin-top: 20px;">
+        <strong>Deux nouvelles variables</strong> à ajouter au token set actuel :
+        <code>--color-bg-dark</code> (<code>#0F1B2D</code>) et <code>--color-bg-dark-2</code> (<code>#16263D</code>) pour les surfaces sombres résiduelles (sidebar, header de chat).
+      </p>
+    </section>
+
+    <hr class="sep" />
+
+    <footer style="color: var(--text-muted); font-size: 13px;">
+      Charte v1 — Multi-Agent Platform · préparée le 4 août 2026. Toute nouvelle couleur DOIT être introduite ici avant d'être utilisée dans le code.
+    </footer>
+
+  </div>
+</body>
+</html>

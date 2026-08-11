@@ -1,0 +1,172 @@
+# Multi-Agent Platform — backend configuration.
+#
+# Required environment variables (consumed by this and later EPICs):
+#   DB_URL / DB_USERNAME / DB_PASSWORD                         — PostgreSQL connection (EPIC-02)
+#   APP_BOOTSTRAP_ADMIN_EMAIL / APP_BOOTSTRAP_ADMIN_PASSWORD_HASH — Flyway-seeded admin (EPIC-02)
+#   JWT_SIGNING_SECRET                                         — HS256 signing secret (EPIC-03)
+#   OPENAI_API_KEY                                             — OpenAI API key (REQ-LLM-003)
+#   BRAVE_API_KEY                                              — Brave Search MCP API key
+#   MCP_FS_BASE                                                — base directory for the per-user filesystem MCP root (REQ-MCP-005); defaults to ./var/lib/multi-agent/fs
+#   OPENAI_MODEL                                               — OpenAI default model name (REQ-LLM-002); defaults to gpt-4o-mini
+
+spring:
+  application:
+    name: multi-agent-platform
+  main:
+    banner-mode: log
+
+  # Spring AI 1.1.0 ships OpenAI sub-model autoconfigurations (audio, transcription,
+  # embedding, image, moderation) that instantiate an internal `OpenAiAudioApi` /
+  # `OpenAiImageApi` / etc. at context startup. Those classes call
+  # `HttpHeaders.addAll(MultiValueMap)` — a method whose signature changed in
+  # Spring Framework 7 (now returns `HttpHeaders` instead of `void`), producing a
+  # `NoSuchMethodError` at bean creation and aborting the application context.
+  # We only consume the chat model in v1; the other sub-models are excluded so the
+  # broken code paths are never loaded. Mirrors the test-profile exclusions in
+  # src/test/resources/application.yaml.
+  autoconfigure:
+    exclude: >-
+      org.springframework.ai.model.openai.autoconfigure.OpenAiAudioSpeechAutoConfiguration,
+      org.springframework.ai.model.openai.autoconfigure.OpenAiAudioTranscriptionAutoConfiguration,
+      org.springframework.ai.model.openai.autoconfigure.OpenAiEmbeddingAutoConfiguration,
+      org.springframework.ai.model.openai.autoconfigure.OpenAiImageAutoConfiguration,
+      org.springframework.ai.model.openai.autoconfigure.OpenAiModerationAutoConfiguration
+
+  # PostgreSQL datasource. All credentials come from environment variables; the application
+  # MUST fail fast at startup if any of these are missing in a non-test profile.
+  datasource:
+    url: ${DB_URL}
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
+
+  # Flyway owns the schema (load-bearing): Hibernate is set to validate-only so that any
+  # mismatch between the JPA entities and the migrated schema fails fast at startup.
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+    properties:
+      hibernate.jdbc.time_zone: UTC
+      hibernate.format_sql: false
+
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    # Bootstrap-admin seed: V002__seed_admin.sql substitutes these placeholders. The
+    # placeholder values are sourced from environment variables; missing values fail fast.
+    placeholders:
+      app_bootstrap_admin_email: ${APP_BOOTSTRAP_ADMIN_EMAIL}
+      app_bootstrap_admin_password_hash: ${APP_BOOTSTRAP_ADMIN_PASSWORD_HASH}
+
+  # Ensure every error flows through the @RestControllerAdvice (problem-details). Without
+  # these two flags, unmapped URLs are absorbed by the default static-resource handler and
+  # the BasicErrorController, bypassing the advice (REQ-API-004).
+  mvc:
+    throw-exception-if-no-handler-found: true
+  web:
+    resources:
+      add-mappings: false
+
+  # Spring AI MCP-client connections (REQ-MCP-001 / -002 / -003). Both servers are
+  # spawned as stdio subprocesses by Spring AI at startup. The `filesystem` server's
+  # path argument points at the shared base directory; per-user scoping is handled
+  # in code by FilesystemMcpUserScopeAdapter (US-08-004) — see design §14 (TBD-2)
+  # for the runtime wiring chosen by EPIC-11.
+  ai:
+    # OpenAI chat client (EPIC-09 / REQ-LLM-001 / -002 / -003). The api-key
+    # placeholder uses an empty default so that placeholder resolution does NOT
+    # fail at startup with a generic message; the real fail-fast lives in
+    # OpenAiConfig.@PostConstruct (US-09-002) and names OPENAI_API_KEY
+    # explicitly in its error message. The chat options model is relayed from
+    # app.llm.openai.default-model so operators have a single env var to
+    # override (OPENAI_MODEL).
+    openai:
+      api-key: ${OPENAI_API_KEY:}
+      chat:
+        options:
+          model: ${app.llm.openai.default-model}
+    mcp:
+      client:
+        stdio:
+          connections:
+            brave-search:
+              command: npx
+              args: [-y, "@modelcontextprotocol/server-brave-search"]
+              env:
+                BRAVE_API_KEY: ${BRAVE_API_KEY}
+            filesystem:
+              command: npx
+              args: [-y, "@modelcontextprotocol/server-filesystem", "${app.mcp.filesystem.base}"]
+
+server:
+  port: 8080
+
+# Spring Boot Actuator — observability surface (EPIC-15 / REQ-OBS-003).
+# Only the health endpoint is exposed. `show-details=never` returns a minimal
+# {"status":"UP"} body so the probe never leaks the DB host / schema / disk
+# thresholds (REQ-SEC-004). The endpoint lives at /actuator/health, OUTSIDE
+# the /api/v1 versioned prefix — Actuator installs its own dispatcher mapping
+# that bypasses spring.mvc.servlet.path. RateLimitFilter.shouldNotFilter(...)
+# already short-circuits /actuator/** so monitors can poll at any cadence.
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      show-details: never
+
+app:
+  api:
+    base-path: /api/v1
+  cors:
+    allowed-origins:
+      - http://localhost:5173
+  security:
+    jwt:
+      lifetime: PT30M
+      signing-secret: ${JWT_SIGNING_SECRET}
+  aws:
+    # AWS region for AwsS3Tool (US-07-003 / REQ-TOOL-005). Override via the
+    # AWS_REGION env var in deployment; default `eu-west-3` preserves the
+    # behavior of the reference example.
+    region: ${AWS_REGION:eu-west-3}
+  mcp:
+    filesystem:
+      # Base directory under which per-user MCP filesystem roots are resolved
+      # on demand (REQ-MCP-005, US-08-004). The default is RELATIVE so a stock
+      # developer machine (notably the Windows laptop described in SPECS.md)
+      # can write to it without admin rights; production deployments override
+      # via MCP_FS_BASE (e.g. /var/lib/multi-agent/fs on EC2 — design §15).
+      base: ${MCP_FS_BASE:./var/lib/multi-agent/fs}
+  llm:
+    openai:
+      # OpenAI default model (REQ-LLM-002, US-09-002). The single source the
+      # adapter reads when the per-agent Agent.llmModel override is absent.
+      # Relayed to spring.ai.openai.chat.options.model above so the two keys
+      # cannot drift. Operators override via OPENAI_MODEL.
+      default-model: ${OPENAI_MODEL:gpt-4o-mini}
+      # Production fallback @Bean ChatModel + @Bean LlmChatClient declared in
+      # OpenAiConfig. Spring AI 2.0.0-M4 was published against Spring Boot
+      # 4.1.0-M2; on Spring Boot 4.0.6 its OpenAi auto-config is silently
+      # skipped (missing ToolCallingManager from a sibling auto-config that
+      # also fails to match), leaving SendMessageService without an
+      # LlmChatClient. The fallback bean constructs OpenAiChatModel via the
+      # public builder and is gated by @ConditionalOnMissingBean so a working
+      # auto-config (or a future Spring AI release that matches Spring Boot
+      # 4.0.x) wins. Tests disable the fallback in src/test/resources.
+      fallback-bean:
+        enabled: true
+  streaming:
+    # SSE emitter timeout for POST /conversations/{id}/messages (EPIC-11 /
+    # US-11-005). When Tomcat reaches this without a write, onTimeout fires
+    # and the Reactor subscription is disposed (REQ-STR-003). The default
+    # comfortably covers any conceivable LLM turn while freeing resources
+    # on stuck streams.
+    emitter-timeout: PT10M
+
+logging:
+  level:
+    root: INFO
+    com.cognizant.emk.multiagent: INFO

@@ -1,0 +1,14 @@
+dist/
+coverage/
+node_modules/
+src/generated/
+package-lock.json
+*.tsbuildinfo
+vite.config.d.ts
+vite.config.js
+tailwind.config.d.ts
+tailwind.config.js
+
+# Project documentation is hand-formatted (long-form prose, tables with
+# intentional column alignment). Prettier would re-flow it counterproductively.
+*.md

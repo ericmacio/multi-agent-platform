@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    Logback configuration for the multi-agent platform.
+
+    Two concerns share this file:
+
+    1.  Sensitive-data redaction (REQ-SEC-004 / US-03-001).
+        The `redactedMsg` conversion word resolves to
+        SensitiveDataMaskingConverter, which masks BCrypt hashes,
+        Bearer headers, and JWT-shaped substrings before any byte is
+        emitted. Every message field on the pattern below is routed
+        through %redactedMsg so the redaction contract holds regardless
+        of the encoder shape.
+
+    2.  Human-readable single-line output.
+        One line per log event with a Spring-Boot-style layout:
+          <ts> <lvl> [<thread>] <logger> [<correlationId>] : <msg>
+        The correlationId comes from CorrelationIdFilter (US-15-002) via
+        MDC — a literal `-` is emitted outside a request scope (startup
+        logs, scheduled-task heartbeats). Stack traces are appended by
+        %ex (Logback's standard converter) when the log event carries a
+        Throwable. Spring Boot's %wEx is NOT used because it is only
+        registered when Boot's `defaults.xml` is included, which this
+        file deliberately does not — the pattern must be self-contained.
+
+    Per-package log levels (REQ-OBS-002) are configured via
+    `logging.level.<package>=<level>` in application.yaml — Spring Boot's
+    LoggingSystem applies them to Logback at context refresh, independent
+    of this file.
+-->
+<configuration>
+
+    <conversionRule conversionWord="redactedMsg"
+                    class="com.cognizant.emk.multiagent.infrastructure.web.error.SensitiveDataMaskingConverter"/>
+
+    <property name="LOG_PATTERN"
+              value="%d{yyyy-MM-dd HH:mm:ss.SSS} %-5level [%thread] %logger{40} [%mdc{correlationId:--}] : %redactedMsg%n%ex"/>
+
+    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder class="ch.qos.logback.classic.encoder.PatternLayoutEncoder">
+            <pattern>${LOG_PATTERN}</pattern>
+            <charset>UTF-8</charset>
+        </encoder>
+    </appender>
+
+    <root level="INFO">
+        <appender-ref ref="CONSOLE"/>
+    </root>
+
+</configuration>

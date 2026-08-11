@@ -1,0 +1,130 @@
+# =============================================================================
+# Root .gitignore — Multi-Agent Platform
+# Covers: Java/Maven backend, Node/Vite/React frontend, IDEs, OS clutter, secrets
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# Backend — Java / Maven / Spring Boot
+# -----------------------------------------------------------------------------
+target/
+build/
+*.class
+*.jar
+*.war
+*.ear
+*.nar
+hs_err_pid*
+replay_pid*
+.mvn/wrapper/maven-wrapper.jar
+!**/src/main/**/target/
+!**/src/test/**/target/
+
+# Maven wrapper logs
+.mvn/timing.properties
+.mvn/wrapper/MavenWrapperDownloader.java
+
+# Spring Boot devtools / local caches
+.spring-boot-devtools.properties
+
+# -----------------------------------------------------------------------------
+# Frontend — Node / npm / Vite / React / TypeScript
+# -----------------------------------------------------------------------------
+node_modules/
+dist/
+dist-ssr/
+.vite/
+.tsbuild-node/
+*.tsbuildinfo
+coverage/
+.nyc_output/
+
+# tsc -b (composite project) emitted artifacts next to source
+vite.config.d.ts
+vite.config.js
+tailwind.config.d.ts
+tailwind.config.js
+postcss.config.d.ts
+
+# npm / yarn / pnpm debug logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# -----------------------------------------------------------------------------
+# Environment & secrets
+# -----------------------------------------------------------------------------
+.env
+.env.local
+.env.*.local
+*.local
+!.env.example
+
+# Credentials / keys
+*.pem
+*.key
+*.p12
+*.pfx
+*.keystore
+secrets/
+
+# -----------------------------------------------------------------------------
+# IDEs & editors
+# -----------------------------------------------------------------------------
+.idea/
+*.iml
+*.ipr
+*.iws
+.vscode/
+!.vscode/settings.json.example
+*.swp
+*.swo
+*~
+.project
+.classpath
+.settings/
+.factorypath
+.springBeans
+.sts4-cache/
+nbproject/private/
+nbbuild/
+nbdist/
+.nb-gradle/
+
+# -----------------------------------------------------------------------------
+# OS-generated files
+# -----------------------------------------------------------------------------
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+desktop.ini
+$RECYCLE.BIN/
+
+# -----------------------------------------------------------------------------
+# Logs & runtime artifacts
+# -----------------------------------------------------------------------------
+*.log
+logs/
+*.pid
+*.seed
+*.pid.lock
+
+# -----------------------------------------------------------------------------
+# Test / coverage output
+# -----------------------------------------------------------------------------
+backend/**/surefire-reports/
+backend/**/failsafe-reports/
+backend/**/jacoco.exec
+backend/**/site/
+
+# -----------------------------------------------------------------------------
+# Notes
+# -----------------------------------------------------------------------------
+# The frontend/ directory has its own .gitignore that layers on top of this one.
+# The typed API client under frontend/src/generated/ IS checked in (regenerated
+# from openapi.yaml).

@@ -1,0 +1,61 @@
+/*
+ * Design tokens — single source of truth.
+ * Values match frontend/design/charte.html ("Clarté" theme).
+ * Component code MUST consume these via Tailwind classes (bg-bg-surface, text-text-primary, ...)
+ * or via var(--color-*) — NEVER as hardcoded hex literals.
+ */
+
+:root {
+  /* Backgrounds — light workspace / dark navigation alternation */
+  --color-bg-base: #f5f2ec; /* Sable — global page background (chaud, doux) */
+  --color-bg-surface: #ffffff; /* Blanc — cards, panels */
+  --color-bg-elevated: #ffffff; /* Blanc — dropdowns, tooltips, modals */
+  --color-bg-subtle: #eef0ff; /* Indigo pâle — accented surface, hover */
+  --color-bg-ink: #0f1b2d; /* Encre nuit — sidebar */
+  --color-bg-ink-2: #16263d; /* Encre hover — nav item survolé */
+
+  /* Borders */
+  --color-border-default: #ddd6c6; /* bordure douce sur fond clair */
+  --color-border-strong: #c8bfa8; /* bordure appuyée pour délimiter les cartes */
+  --color-border-ink: #1f3352; /* séparateur dans zones sombres */
+  --color-border-accent: #c7d0ff; /* accent-dim — bordure accentuée */
+  --color-border-focus: #4f46e5; /* halo de focus (Indigo) */
+
+  /* Text on light surfaces */
+  --color-text-primary: #0f1b2d; /* Encre — titres, texte fort */
+  --color-text-secondary: #4a5a6a; /* Ardoise — texte courant */
+  --color-text-muted: #8a97ab; /* Nuage — métadonnées, placeholders */
+  --color-text-disabled: #c6cdd8; /* Brume — désactivé */
+
+  /* Text on ink (dark) surfaces */
+  --color-text-on-ink: #f1f3f8;
+  --color-text-on-ink-2: #b8c2d3;
+  --color-text-on-ink-3: #7c8ba3;
+
+  /* Signature color — Indigo */
+  --color-accent: #4f46e5; /* CTAs, active links, primary icons */
+  --color-accent-hover: #4338ca;
+  --color-accent-bg: #eef0ff; /* fond Indigo sur clair (badges, hover) */
+  --color-accent-dim: #c7d0ff; /* Indigo dilué (bordures, overlays) */
+  --color-accent-soft: rgba(79, 70, 229, 0.22); /* Overlay Indigo sur fond ink (nav actif) */
+
+  /* Semantic */
+  --color-success: #059669;
+  --color-success-bg: #e6f7ef;
+  --color-info: #2563eb;
+  --color-info-bg: #e7eefe;
+  --color-warning: #b45309;
+  --color-warning-bg: #fef3d7;
+  --color-danger: #b91c1c;
+  --color-danger-bg: #fdecec;
+
+  /* Typography */
+  --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+  --font-voice: 'Fraunces', ui-serif, Georgia, serif;
+  --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+
+  /* Shadows */
+  --shadow-sm: 0 1px 3px rgba(15, 27, 45, 0.08);
+  --shadow-md: 0 4px 14px rgba(15, 27, 45, 0.1);
+  --shadow-lg: 0 16px 40px rgba(15, 27, 45, 0.14);
+}

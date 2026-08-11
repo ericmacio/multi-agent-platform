@@ -1,0 +1,185 @@
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
+import { http, HttpResponse } from 'msw';
+import { screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { useState } from 'react';
+import { server } from '@/test/server';
+import { env } from '@/env';
+import { tokenStorage } from '@/shared/auth/tokenStorage';
+import { renderWithProviders } from '@/test/render';
+import { ToolPicker } from './ToolPicker';
+
+const BASE = env.VITE_API_BASE_URL;
+
+function Harness({
+  initial = [],
+  onChange,
+  disabled = false,
+}: {
+  initial?: string[];
+  onChange?: (next: string[]) => void;
+  disabled?: boolean;
+}) {
+  const [value, setValue] = useState<string[]>(initial);
+  return (
+    <ToolPicker
+      value={value}
+      disabled={disabled}
+      onChange={(next) => {
+        setValue(next);
+        onChange?.(next);
+      }}
+    />
+  );
+}
+
+beforeEach(() => {
+  tokenStorage.clear();
+});
+afterEach(() => {
+  tokenStorage.clear();
+});
+
+describe('ToolPicker', () => {
+  test('selecting a row calls onChange with name appended', async () => {
+    server.use(
+      http.get(`${BASE}/tools`, () =>
+        HttpResponse.json({
+          items: [
+            { name: 'aws_s3', description: 'd' },
+            { name: 'http_fetch', description: 'd2' },
+          ],
+        }),
+      ),
+    );
+    const onChange = vi.fn();
+    renderWithProviders(<Harness onChange={onChange} />);
+
+    await screen.findByText('aws_s3');
+    await userEvent.click(screen.getByText('aws_s3'));
+    expect(onChange).toHaveBeenLastCalledWith(['aws_s3']);
+  });
+
+  test('deselecting a row calls onChange with name removed', async () => {
+    server.use(
+      http.get(`${BASE}/tools`, () =>
+        HttpResponse.json({
+          items: [{ name: 'aws_s3', description: 'd' }],
+        }),
+      ),
+    );
+    const onChange = vi.fn();
+    renderWithProviders(<Harness initial={['aws_s3']} onChange={onChange} />);
+
+    await screen.findByText('aws_s3');
+    await userEvent.click(screen.getByText('aws_s3'));
+    expect(onChange).toHaveBeenLastCalledWith([]);
+  });
+
+  test('filter narrows visible rows', async () => {
+    server.use(
+      http.get(`${BASE}/tools`, () =>
+        HttpResponse.json({
+          items: [
+            { name: 'aws_s3', description: 'd' },
+            { name: 'http_fetch', description: 'd2' },
+          ],
+        }),
+      ),
+    );
+    renderWithProviders(<Harness />);
+
+    await screen.findByText('aws_s3');
+    await userEvent.type(screen.getByLabelText(/filter tools/i), 'http');
+    expect(screen.queryByText('aws_s3')).not.toBeInTheDocument();
+    expect(screen.getByText('http_fetch')).toBeInTheDocument();
+  });
+
+  test('selected-count badge updates synchronously with value', async () => {
+    server.use(
+      http.get(`${BASE}/tools`, () =>
+        HttpResponse.json({
+          items: [
+            { name: 'aws_s3', description: 'd' },
+            { name: 'http_fetch', description: 'd2' },
+          ],
+        }),
+      ),
+    );
+    renderWithProviders(<Harness />);
+
+    await screen.findByText('aws_s3');
+    expect(screen.getByTestId('tool-picker-count')).toHaveTextContent('0 selected');
+    await userEvent.click(screen.getByText('aws_s3'));
+    expect(screen.getByTestId('tool-picker-count')).toHaveTextContent('1 selected');
+    await userEvent.click(screen.getByText('http_fetch'));
+    expect(screen.getByTestId('tool-picker-count')).toHaveTextContent('2 selected');
+  });
+
+  test('loading state renders skeleton rows and no checkboxes', async () => {
+    // Never-resolving handler to keep the query pending.
+    server.use(http.get(`${BASE}/tools`, () => new Promise<HttpResponse<null>>(() => {})));
+
+    renderWithProviders(<Harness />);
+    expect(await screen.findByTestId('tool-picker-loading')).toBeInTheDocument();
+    expect(screen.queryByRole('checkbox')).not.toBeInTheDocument();
+  });
+
+  test('error state renders Retry and recovers on success', async () => {
+    let calls = 0;
+    server.use(
+      http.get(`${BASE}/tools`, () => {
+        calls += 1;
+        if (calls === 1) {
+          return HttpResponse.json(
+            { title: 'Internal error', status: 500, code: 'INTERNAL_ERROR' },
+            { status: 500, headers: { 'Content-Type': 'application/problem+json' } },
+          );
+        }
+        return HttpResponse.json({ items: [{ name: 'aws_s3', description: 'd' }] });
+      }),
+    );
+
+    renderWithProviders(<Harness />);
+    expect(await screen.findByRole('alert')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: /retry/i }));
+    await waitFor(() => expect(screen.getByText('aws_s3')).toBeInTheDocument());
+  });
+
+  test('empty catalog renders "No tools configured"', async () => {
+    server.use(http.get(`${BASE}/tools`, () => HttpResponse.json({ items: [] })));
+
+    renderWithProviders(<Harness />);
+    expect(await screen.findByText(/no tools configured/i)).toBeInTheDocument();
+    expect(screen.queryByLabelText(/filter tools/i)).not.toBeInTheDocument();
+  });
+
+  test('filter no-match shows Clear filter affordance', async () => {
+    server.use(
+      http.get(`${BASE}/tools`, () =>
+        HttpResponse.json({ items: [{ name: 'aws_s3', description: 'd' }] }),
+      ),
+    );
+    renderWithProviders(<Harness />);
+
+    await screen.findByText('aws_s3');
+    await userEvent.type(screen.getByLabelText(/filter tools/i), 'zzz');
+    expect(screen.getByText(/no tools match "zzz"/i)).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: /clear filter/i }));
+    expect(await screen.findByText('aws_s3')).toBeInTheDocument();
+  });
+
+  test('disabled prop prevents onChange when clicking', async () => {
+    server.use(
+      http.get(`${BASE}/tools`, () =>
+        HttpResponse.json({ items: [{ name: 'aws_s3', description: 'd' }] }),
+      ),
+    );
+    const onChange = vi.fn();
+    renderWithProviders(<Harness onChange={onChange} disabled />);
+
+    await screen.findByText('aws_s3');
+    await userEvent.click(screen.getByText('aws_s3'));
+    expect(onChange).not.toHaveBeenCalled();
+  });
+});

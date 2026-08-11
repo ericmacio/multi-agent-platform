@@ -1,0 +1,1763 @@
+openapi: 3.0.3
+
+info:
+  title: Multi-Agent Platform API
+  version: 1.0.0
+  description: |
+    REST API contract for the Multi-Agent Platform backend.
+
+    This document is the single source of truth shared between backend (Spring Boot 4.0.6 / Java 17 / Spring AI 1.1.0)
+    and frontend (ReactJS). It is derived from `backend/requirements/REQS.md` and `backend/design/SW-DESIGN.md`.
+
+    ## Authentication
+    Two mutually exclusive modes are supported:
+    - **JWT mode** (end users) — `Authorization: Bearer <token>` issued by `POST /auth/login`.
+      Default lifetime: 30 minutes (HS256). No refresh tokens. Logout adds the token's `jti` to a
+      self-expiring denylist.
+    - **API-key mode** (machine-to-machine) — `X-Client-Id` and `X-Api-Key` headers.
+      API-key callers run under a virtual `SYSTEM` principal with full chat capabilities but no
+      admin access and no visibility on end-user-owned resources.
+
+    ## Errors
+    All error responses use RFC 7807 Problem Details with a stable machine-readable `code` field.
+
+    ## Pagination
+    List endpoints use opaque cursor-based pagination (`cursor`, `pageSize`) with a `nextCursor`
+    in the response envelope. Default page size is 20, maximum 100.
+
+    ## Streaming
+    The chat endpoint `POST /conversations/{conversationId}/messages` returns Server-Sent Events
+    (`text/event-stream`) with typed frames: `started`, `delta`, `completed`, `error`.
+  contact:
+    name: Multi-Agent Platform Team
+    email: eric.macioszczyk@cognizant.com
+  license:
+    name: Proprietary
+
+servers:
+  - url: http://localhost:8080/api/v1
+    description: Local development
+  - url: https://{host}/api/v1
+    description: Deployed environment
+    variables:
+      host:
+        default: api.example.com
+        description: Deployment hostname
+
+tags:
+  - name: Auth
+    description: Login, logout, password change.
+  - name: Admin - Users
+    description: User management (admin only).
+  - name: Admin - API Keys
+    description: Machine-to-machine API key management (admin only).
+  - name: Admin - Rate Limit
+    description: Live rate-limit configuration (admin only).
+  - name: Tools
+    description: Static tool catalog discovery.
+  - name: MCP Servers
+    description: Configured MCP server discovery.
+  - name: Agents
+    description: Owner-scoped CRUD on AI agents.
+  - name: Conversations
+    description: Chat conversations and messages, with SSE streaming.
+
+security:
+  - BearerAuth: []
+  - ApiKeyAuth: []
+
+paths:
+
+  # ------------------------------------------------------------
+  # Auth
+  # ------------------------------------------------------------
+
+  /auth/login:
+    post:
+      tags: [Auth]
+      summary: Sign in with email and password
+      description: |
+        Public endpoint. Returns a signed JWT to be used in the `Authorization: Bearer <token>` header
+        on subsequent calls. The response includes `mustChangePassword` so the frontend can route the
+        user to the password-change screen when required (REQ-USR-007).
+      operationId: login
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Authentication successful.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/InvalidCredentials'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /auth/logout:
+    post:
+      tags: [Auth]
+      summary: Log the current JWT out (denylist)
+      description: |
+        Adds the presented JWT's `jti` to the logout denylist. The denylist entry self-expires no later
+        than the token's natural `exp`. Subsequent requests using the same token are rejected with 401.
+      operationId: logout
+      security:
+        - BearerAuth: []
+      responses:
+        '204':
+          description: Logged out. The client must also discard the JWT locally.
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /auth/password:
+    put:
+      tags: [Auth]
+      summary: Change the authenticated user's password
+      description: |
+        Authenticated end-user endpoint. The new password must meet the platform policy
+        (≥10 chars, ≥1 uppercase, ≥1 special char). On success, the `mustChangePassword` flag
+        is cleared. The current JWT remains valid until natural expiry.
+      operationId: changeOwnPassword
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChangePasswordRequest'
+      responses:
+        '204':
+          description: Password changed.
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  # ------------------------------------------------------------
+  # Admin - Users
+  # ------------------------------------------------------------
+
+  /admin/users:
+    get:
+      tags: [Admin - Users]
+      summary: List users
+      description: Cursor-paginated list of users. Admin only.
+      operationId: listUsers
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/PageSize'
+      responses:
+        '200':
+          description: Page of users.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserPage'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+    post:
+      tags: [Admin - Users]
+      summary: Create a user
+      description: Only admin users may create accounts. Public self-signup is not supported.
+      operationId: createUser
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateUserRequest'
+      responses:
+        '201':
+          description: User created.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /admin/users/{userId}:
+    parameters:
+      - $ref: '#/components/parameters/UserId'
+    get:
+      tags: [Admin - Users]
+      summary: Get a user
+      operationId: getUser
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: User found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+    patch:
+      tags: [Admin - Users]
+      summary: Enable or disable a user
+      operationId: updateUser
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateUserRequest'
+      responses:
+        '200':
+          description: User updated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+    delete:
+      tags: [Admin - Users]
+      summary: Hard-delete a user
+      description: |
+        Hard-deletes the user along with all owned agents and conversations (cascade).
+        Soft-delete and anonymization are not supported (REQ-USR-006).
+      operationId: deleteUser
+      security:
+        - BearerAuth: []
+      responses:
+        '204':
+          description: User deleted.
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  # ------------------------------------------------------------
+  # Admin - API Keys
+  # ------------------------------------------------------------
+
+  /admin/api-keys:
+    get:
+      tags: [Admin - API Keys]
+      summary: List API keys (metadata only)
+      description: Cleartext API keys are NEVER returned after creation.
+      operationId: listApiKeys
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/PageSize'
+      responses:
+        '200':
+          description: Page of API key metadata.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiKeyPage'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+    post:
+      tags: [Admin - API Keys]
+      summary: Create an API key
+      description: |
+        Returns the cleartext API key **once** in the response body. The platform never
+        exposes the cleartext value again. Persisted as a BCrypt hash.
+      operationId: createApiKey
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateApiKeyRequest'
+      responses:
+        '201':
+          description: API key created.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiKeyCreated'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /admin/api-keys/{clientId}:
+    parameters:
+      - $ref: '#/components/parameters/ClientId'
+    patch:
+      tags: [Admin - API Keys]
+      summary: Disable or re-enable an API key
+      description: Soft revocation via the `disabled` flag (the row is preserved for traceability).
+      operationId: updateApiKey
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateApiKeyRequest'
+      responses:
+        '200':
+          description: API key metadata updated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiKey'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  # ------------------------------------------------------------
+  # Admin - Rate Limit
+  # ------------------------------------------------------------
+
+  /admin/rate-limit:
+    get:
+      tags: [Admin - Rate Limit]
+      summary: Get the live rate-limit configuration
+      operationId: getRateLimitConfig
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Current rate-limit configuration.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RateLimitConfig'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+    put:
+      tags: [Admin - Rate Limit]
+      summary: Replace the live rate-limit configuration
+      description: Takes effect on the next request without restart.
+      operationId: updateRateLimitConfig
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RateLimitConfigRequest'
+      responses:
+        '200':
+          description: Updated rate-limit configuration.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RateLimitConfig'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  # ------------------------------------------------------------
+  # Catalogues - Tools / MCP Servers
+  # ------------------------------------------------------------
+
+  /tools:
+    get:
+      tags: [Tools]
+      summary: List the static tool catalog
+      description: |
+        Returns the set of tools available for assignment to an agent.
+        The catalog is static and discovered at application startup.
+      operationId: listTools
+      security:
+        - BearerAuth: []
+        - ApiKeyAuth: []
+      responses:
+        '200':
+          description: Tool catalog.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ToolList'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /mcp-servers:
+    get:
+      tags: [MCP Servers]
+      summary: List configured MCP servers
+      description: Returns the names of MCP servers declared in `application.properties`.
+      operationId: listMcpServers
+      security:
+        - BearerAuth: []
+        - ApiKeyAuth: []
+      responses:
+        '200':
+          description: MCP server catalog.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/McpServerList'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  # ------------------------------------------------------------
+  # Agents
+  # ------------------------------------------------------------
+
+  /agents:
+    get:
+      tags: [Agents]
+      summary: List the caller's agents
+      description: Cursor-paginated. Returns only agents owned by the authenticated user.
+      operationId: listAgents
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/PageSize'
+      responses:
+        '200':
+          description: Page of agents.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AgentPage'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+    post:
+      tags: [Agents]
+      summary: Create an agent
+      operationId: createAgent
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AgentRequest'
+      responses:
+        '201':
+          description: Agent created.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Agent'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /agents/{agentId}:
+    parameters:
+      - $ref: '#/components/parameters/AgentId'
+    get:
+      tags: [Agents]
+      summary: Get an agent
+      operationId: getAgent
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Agent found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Agent'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+    put:
+      tags: [Agents]
+      summary: Replace an agent's configuration
+      description: |
+        Full replace. Updates take effect on the next turn of any ongoing conversation
+        involving this agent (REQ-AGT-014); past persisted messages are not rewritten.
+      operationId: updateAgent
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AgentRequest'
+      responses:
+        '200':
+          description: Agent updated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Agent'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+    delete:
+      tags: [Agents]
+      summary: Delete an agent
+      description: Cascades to all conversations that reference this agent (REQ-AGT-010).
+      operationId: deleteAgent
+      security:
+        - BearerAuth: []
+      responses:
+        '204':
+          description: Agent deleted.
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  # ------------------------------------------------------------
+  # Conversations
+  # ------------------------------------------------------------
+
+  /conversations:
+    get:
+      tags: [Conversations]
+      summary: List the caller's conversations
+      description: Cursor-paginated, ordered most-recent first. Scoped to the calling principal.
+      operationId: listConversations
+      security:
+        - BearerAuth: []
+        - ApiKeyAuth: []
+      parameters:
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/PageSize'
+        - name: agentId
+          in: query
+          description: Optional filter by agent.
+          required: false
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Page of conversations.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConversationPage'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+    post:
+      tags: [Conversations]
+      summary: Start a new conversation with an agent
+      description: |
+        Creates an empty conversation. The title remains `null` until the first non-empty user
+        message is sent (auto-derived from that first message, max 32 chars; default `chat-<uuid>`
+        if not derivable).
+      operationId: createConversation
+      security:
+        - BearerAuth: []
+        - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateConversationRequest'
+      responses:
+        '201':
+          description: Conversation created.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Conversation'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /conversations/{conversationId}:
+    parameters:
+      - $ref: '#/components/parameters/ConversationId'
+    get:
+      tags: [Conversations]
+      summary: Get a conversation
+      operationId: getConversation
+      security:
+        - BearerAuth: []
+        - ApiKeyAuth: []
+      responses:
+        '200':
+          description: Conversation found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Conversation'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+    patch:
+      tags: [Conversations]
+      summary: Edit a conversation's title
+      description: Allows the user to override the auto-derived title (max 32 characters).
+      operationId: updateConversation
+      security:
+        - BearerAuth: []
+        - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateConversationRequest'
+      responses:
+        '200':
+          description: Conversation updated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Conversation'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+    delete:
+      tags: [Conversations]
+      summary: Delete a conversation
+      operationId: deleteConversation
+      security:
+        - BearerAuth: []
+        - ApiKeyAuth: []
+      responses:
+        '204':
+          description: Conversation deleted.
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /conversations/{conversationId}/messages:
+    parameters:
+      - $ref: '#/components/parameters/ConversationId'
+
+    get:
+      tags: [Conversations]
+      summary: List messages of a conversation
+      description: Cursor-paginated. Default order is chronological ascending (oldest first).
+      operationId: listMessages
+      security:
+        - BearerAuth: []
+        - ApiKeyAuth: []
+      parameters:
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/PageSize'
+      responses:
+        '200':
+          description: Page of messages.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessagePage'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+    post:
+      tags: [Conversations]
+      summary: Send a message — streamed assistant response (SSE)
+      description: |
+        Submits a user message and returns the assistant's response as a stream of
+        Server-Sent Events. The request must include `Accept: text/event-stream` — `406` is
+        returned otherwise.
+
+        ## SSE frame types
+        - `started` — `{ "userMessageId": "uuid", "conversationId": "uuid" }`
+          emitted after the user message is persisted.
+        - `delta` — `{ "text": "incremental string" }`
+          emitted for each LLM token chunk.
+        - `completed` — `{ "assistantMessageId": "uuid", "title": "string|null", "messageCount": int }`
+          emitted after the assistant message is persisted; `title` is non-null only on the very
+          first turn (auto-derived).
+        - `error` — RFC 7807 problem detail. Emitted on any error during streaming.
+
+        ## Limits
+        - `content` length ≤ 1024 characters (rejected with 400 otherwise).
+        - Hard cap of 64 messages per conversation; the next attempt returns 409 `CONVERSATION_FULL`.
+      operationId: sendMessage
+      security:
+        - BearerAuth: []
+        - ApiKeyAuth: []
+      parameters:
+        - name: Accept
+          in: header
+          required: true
+          schema:
+            type: string
+            enum: [text/event-stream]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SendMessageRequest'
+      responses:
+        '200':
+          description: SSE stream of typed events.
+          content:
+            text/event-stream:
+              schema:
+                $ref: '#/components/schemas/SseStream'
+              examples:
+                turn:
+                  summary: Typical turn
+                  value: |
+                    event: started
+                    data: {"userMessageId":"7c7e1a2c-2db8-4a3e-9d63-7e3f2cb1b9a1","conversationId":"a9b9bb11-1234-4abc-9def-1234567890ab"}
+
+                    event: delta
+                    data: {"text":"Hello"}
+
+                    event: delta
+                    data: {"text":", world!"}
+
+                    event: completed
+                    data: {"assistantMessageId":"e2c0a9b0-9c98-4f4a-b2c1-1a2b3c4d5e6f","title":"Hello, world!","messageCount":2}
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '406':
+          description: Accept header does not include `text/event-stream`.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+              examples:
+                notAcceptable:
+                  value:
+                    type: https://errors.multi-agent-platform/not-acceptable
+                    title: Not acceptable
+                    status: 406
+                    detail: The endpoint only produces `text/event-stream`.
+                    code: NOT_ACCEPTABLE
+        '409':
+          description: Conversation has reached the 64-message cap.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+              examples:
+                full:
+                  value:
+                    type: https://errors.multi-agent-platform/conversation-full
+                    title: Conversation full
+                    status: 409
+                    detail: Conversation has reached the 64-message cap.
+                    code: CONVERSATION_FULL
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '502':
+          description: Upstream LLM or MCP failure.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+# ============================================================
+# Components
+# ============================================================
+
+components:
+
+  # ----------------------------------------------------------
+  # Security
+  # ----------------------------------------------------------
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: |
+        JWT issued by `POST /auth/login`. HS256-signed. Default lifetime 30 minutes.
+        Submitted as `Authorization: Bearer <token>`.
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-Api-Key
+      description: |
+        Machine-to-machine credentials issued by an admin via `POST /admin/api-keys`.
+        Both `X-Api-Key` and `X-Client-Id` headers must be present on every request.
+        OpenAPI 3.0 lacks composite api-key schemes; consumers SHALL also send `X-Client-Id`.
+
+  # ----------------------------------------------------------
+  # Reusable parameters
+  # ----------------------------------------------------------
+  parameters:
+    Cursor:
+      name: cursor
+      in: query
+      description: Opaque cursor returned in a previous page response. Omit to start from the first page.
+      required: false
+      schema:
+        type: string
+    PageSize:
+      name: pageSize
+      in: query
+      description: Maximum number of items per page.
+      required: false
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 20
+
+    UserId:
+      name: userId
+      in: path
+      required: true
+      description: User identifier (UUID v4).
+      schema:
+        type: string
+        format: uuid
+    ClientId:
+      name: clientId
+      in: path
+      required: true
+      description: API key client identifier.
+      schema:
+        type: string
+        maxLength: 64
+    AgentId:
+      name: agentId
+      in: path
+      required: true
+      description: Agent identifier (UUID v4).
+      schema:
+        type: string
+        format: uuid
+    ConversationId:
+      name: conversationId
+      in: path
+      required: true
+      description: Conversation identifier (UUID v4).
+      schema:
+        type: string
+        format: uuid
+
+  # ----------------------------------------------------------
+  # Reusable responses
+  # ----------------------------------------------------------
+  responses:
+    BadRequest:
+      description: Validation error.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetails'
+          examples:
+            validation:
+              value:
+                type: https://errors.multi-agent-platform/validation-error
+                title: Validation error
+                status: 400
+                detail: One or more fields failed validation.
+                code: VALIDATION_ERROR
+                errors:
+                  - field: name
+                    message: must be at most 32 characters
+
+    Unauthorized:
+      description: Authentication missing, invalid, expired, or denylisted.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetails'
+          examples:
+            invalidCredentials:
+              value:
+                type: https://errors.multi-agent-platform/invalid-credentials
+                title: Invalid credentials
+                status: 401
+                detail: Authentication failed.
+                code: INVALID_CREDENTIALS
+
+    InvalidCredentials:
+      description: Generic authentication failure (no leak about email existence or credential format).
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetails'
+          examples:
+            invalidCredentials:
+              value:
+                type: https://errors.multi-agent-platform/invalid-credentials
+                title: Invalid credentials
+                status: 401
+                detail: Authentication failed.
+                code: INVALID_CREDENTIALS
+
+    Forbidden:
+      description: |
+        The authenticated principal is not allowed to perform this action.
+        Also returned with code `MUST_CHANGE_PASSWORD` when the user must change their password
+        before any other operation is permitted.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetails'
+          examples:
+            forbidden:
+              value:
+                type: https://errors.multi-agent-platform/forbidden
+                title: Forbidden
+                status: 403
+                detail: You are not allowed to perform this action.
+                code: FORBIDDEN
+            mustChangePassword:
+              value:
+                type: https://errors.multi-agent-platform/must-change-password
+                title: Password change required
+                status: 403
+                detail: Change your password before performing any other operation.
+                code: MUST_CHANGE_PASSWORD
+
+    NotFound:
+      description: Resource not found.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetails'
+          examples:
+            notFound:
+              value:
+                type: https://errors.multi-agent-platform/not-found
+                title: Not found
+                status: 404
+                detail: The requested resource does not exist.
+                code: NOT_FOUND
+
+    Conflict:
+      description: |
+        A business invariant was violated. Possible codes:
+        - `DUPLICATE_AGENT_NAME` — agent name not unique for this owner.
+        - `NESTED_TEAM_FORBIDDEN` — team is flat (single-level only).
+        - `CROSS_OWNER_TEAM_MEMBER` — team member belongs to another user.
+        - `CONVERSATION_FULL` — 64-message cap reached.
+        - `CONFLICT` — generic conflict.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetails'
+          examples:
+            duplicateAgentName:
+              value:
+                type: https://errors.multi-agent-platform/duplicate-agent-name
+                title: Duplicate agent name
+                status: 409
+                detail: An agent with this name already exists for this owner.
+                code: DUPLICATE_AGENT_NAME
+
+    RateLimited:
+      description: Global rate limit exceeded.
+      headers:
+        Retry-After:
+          description: Number of seconds to wait before retrying.
+          schema:
+            type: integer
+            minimum: 0
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetails'
+          examples:
+            rateLimited:
+              value:
+                type: https://errors.multi-agent-platform/rate-limited
+                title: Too many requests
+                status: 429
+                detail: Global rate limit exceeded; retry later.
+                code: RATE_LIMITED
+
+    InternalError:
+      description: Unexpected server error.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetails'
+          examples:
+            internal:
+              value:
+                type: https://errors.multi-agent-platform/internal-error
+                title: Internal error
+                status: 500
+                detail: An unexpected error occurred.
+                code: INTERNAL_ERROR
+
+  # ----------------------------------------------------------
+  # Schemas
+  # ----------------------------------------------------------
+  schemas:
+
+    # ----- Generic ---------------------------------------------------------
+
+    ProblemDetails:
+      type: object
+      description: RFC 7807 Problem Details with stable machine-readable `code`.
+      required: [status, title, code]
+      properties:
+        type:
+          type: string
+          format: uri
+          description: URI identifier of the error type.
+        title:
+          type: string
+          description: Short, human-readable summary.
+        status:
+          type: integer
+          minimum: 100
+          maximum: 599
+          description: HTTP status code.
+        detail:
+          type: string
+          description: Human-readable explanation specific to this occurrence.
+        instance:
+          type: string
+          description: Path of the request that triggered the error.
+        code:
+          type: string
+          description: Stable machine-readable error code.
+          enum:
+            - VALIDATION_ERROR
+            - INVALID_CREDENTIALS
+            - MUST_CHANGE_PASSWORD
+            - FORBIDDEN
+            - NOT_FOUND
+            - METHOD_NOT_ALLOWED
+            - CONFLICT
+            - DUPLICATE_AGENT_NAME
+            - NESTED_TEAM_FORBIDDEN
+            - CROSS_OWNER_TEAM_MEMBER
+            - CONVERSATION_FULL
+            - RATE_LIMITED
+            - LLM_UNAVAILABLE
+            - MCP_SERVER_ERROR
+            - NOT_ACCEPTABLE
+            - INTERNAL_ERROR
+        errors:
+          type: array
+          description: Optional per-field validation details.
+          items:
+            type: object
+            required: [field, message]
+            properties:
+              field:
+                type: string
+              message:
+                type: string
+
+    PageEnvelope:
+      type: object
+      description: Generic envelope for cursor-paginated lists.
+      required: [items, pageSize]
+      properties:
+        items:
+          type: array
+          items: {}
+        nextCursor:
+          type: string
+          nullable: true
+          description: Opaque cursor for the next page; `null` if no more pages.
+        pageSize:
+          type: integer
+
+    # ----- Auth -----------------------------------------------------------
+
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+          maxLength: 254
+        password:
+          type: string
+          format: password
+          minLength: 1
+          maxLength: 256
+          writeOnly: true
+
+    LoginResponse:
+      type: object
+      required: [token, tokenType, expiresAt, mustChangePassword]
+      properties:
+        token:
+          type: string
+          description: Signed JWT (HS256).
+        tokenType:
+          type: string
+          enum: [Bearer]
+        expiresAt:
+          type: string
+          format: date-time
+          description: Token expiry, ISO 8601 UTC.
+        mustChangePassword:
+          type: boolean
+          description: True if the user must change their password before any other operation.
+
+    ChangePasswordRequest:
+      type: object
+      required: [currentPassword, newPassword]
+      properties:
+        currentPassword:
+          type: string
+          format: password
+          writeOnly: true
+        newPassword:
+          type: string
+          format: password
+          minLength: 10
+          maxLength: 256
+          writeOnly: true
+          description: |
+            Must satisfy the platform password policy:
+            ≥10 characters, ≥1 uppercase letter, ≥1 special character.
+
+    # ----- Users ----------------------------------------------------------
+
+    Role:
+      type: string
+      enum: [ADMIN, STANDARD]
+
+    User:
+      type: object
+      required: [id, email, role, disabled, mustChangePassword, createdAt, updatedAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        email:
+          type: string
+          format: email
+          maxLength: 254
+        role:
+          $ref: '#/components/schemas/Role'
+        disabled:
+          type: boolean
+        mustChangePassword:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    CreateUserRequest:
+      type: object
+      required: [email, password, role]
+      properties:
+        email:
+          type: string
+          format: email
+          maxLength: 254
+        password:
+          type: string
+          format: password
+          minLength: 10
+          maxLength: 256
+          writeOnly: true
+        role:
+          $ref: '#/components/schemas/Role'
+
+    UpdateUserRequest:
+      type: object
+      properties:
+        disabled:
+          type: boolean
+
+    UserPage:
+      allOf:
+        - $ref: '#/components/schemas/PageEnvelope'
+        - type: object
+          properties:
+            items:
+              type: array
+              items:
+                $ref: '#/components/schemas/User'
+
+    # ----- API keys -------------------------------------------------------
+
+    CreateApiKeyRequest:
+      type: object
+      properties:
+        label:
+          type: string
+          maxLength: 128
+          description: Optional human-readable description.
+
+    ApiKey:
+      type: object
+      description: API key metadata. The cleartext `apiKey` value is NEVER returned outside creation.
+      required: [clientId, disabled, createdAt]
+      properties:
+        clientId:
+          type: string
+          maxLength: 64
+        label:
+          type: string
+          maxLength: 128
+          nullable: true
+        disabled:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+
+    ApiKeyCreated:
+      allOf:
+        - $ref: '#/components/schemas/ApiKey'
+        - type: object
+          required: [apiKey]
+          properties:
+            apiKey:
+              type: string
+              description: |
+                Cleartext API key value. **Returned only once at creation time.** Persist it
+                client-side immediately — the platform stores only its BCrypt hash.
+              writeOnly: false
+
+    UpdateApiKeyRequest:
+      type: object
+      required: [disabled]
+      properties:
+        disabled:
+          type: boolean
+
+    ApiKeyPage:
+      allOf:
+        - $ref: '#/components/schemas/PageEnvelope'
+        - type: object
+          properties:
+            items:
+              type: array
+              items:
+                $ref: '#/components/schemas/ApiKey'
+
+    # ----- Rate limit -----------------------------------------------------
+
+    RateLimitConfig:
+      type: object
+      required: [perMinute, perHour, updatedAt]
+      properties:
+        perMinute:
+          type: integer
+          minimum: 1
+          description: Maximum requests per minute (global bucket).
+        perHour:
+          type: integer
+          minimum: 1
+          description: Maximum requests per hour (global bucket).
+        updatedAt:
+          type: string
+          format: date-time
+        updatedBy:
+          type: string
+          format: uuid
+          nullable: true
+          description: Admin user identifier who last updated the configuration.
+
+    RateLimitConfigRequest:
+      type: object
+      required: [perMinute, perHour]
+      properties:
+        perMinute:
+          type: integer
+          minimum: 1
+        perHour:
+          type: integer
+          minimum: 1
+
+    # ----- Tools / MCP catalog -------------------------------------------
+
+    ToolDescriptor:
+      type: object
+      required: [name, description]
+      properties:
+        name:
+          type: string
+          maxLength: 64
+        description:
+          type: string
+
+    ToolList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/ToolDescriptor'
+
+    McpServerDescriptor:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          maxLength: 64
+        description:
+          type: string
+          nullable: true
+
+    McpServerList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/McpServerDescriptor'
+
+    # ----- Agents ---------------------------------------------------------
+
+    AgentRequest:
+      type: object
+      description: Payload for creating or replacing an agent.
+      required: [name, description, systemPrompt]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 32
+          description: Unique per owner.
+        description:
+          type: string
+          minLength: 1
+          maxLength: 1024
+          description: Used by other agents during delegation.
+        systemPrompt:
+          type: string
+          minLength: 1
+          maxLength: 1024
+        memorySize:
+          type: integer
+          minimum: 1
+          maximum: 36
+          default: 12
+        llmModel:
+          type: string
+          maxLength: 64
+          nullable: true
+          description: Optional override of the platform default model.
+        temperature:
+          type: number
+          format: double
+          nullable: true
+        maxOutputTokens:
+          type: integer
+          minimum: 1
+          nullable: true
+        topP:
+          type: number
+          format: double
+          nullable: true
+        tools:
+          type: array
+          description: References to tool names from the static catalog.
+          items:
+            type: string
+            maxLength: 64
+          default: []
+        enabledMcpServers:
+          type: array
+          description: References to MCP server names declared in configuration.
+          items:
+            type: string
+            maxLength: 64
+          default: []
+        team:
+          type: array
+          description: |
+            Agent identifiers to delegate to. All members must be owned by the same user
+            and must themselves have an empty team (single-level / flat team rule).
+          items:
+            type: string
+            format: uuid
+          default: []
+
+    Agent:
+      allOf:
+        - $ref: '#/components/schemas/AgentRequest'
+        - type: object
+          required: [id, ownerId, createdAt, updatedAt]
+          properties:
+            id:
+              type: string
+              format: uuid
+            ownerId:
+              type: string
+              format: uuid
+            createdAt:
+              type: string
+              format: date-time
+            updatedAt:
+              type: string
+              format: date-time
+
+    AgentPage:
+      allOf:
+        - $ref: '#/components/schemas/PageEnvelope'
+        - type: object
+          properties:
+            items:
+              type: array
+              items:
+                $ref: '#/components/schemas/Agent'
+
+    # ----- Conversations & messages --------------------------------------
+
+    CreateConversationRequest:
+      type: object
+      required: [agentId]
+      properties:
+        agentId:
+          type: string
+          format: uuid
+
+    UpdateConversationRequest:
+      type: object
+      required: [title]
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 32
+
+    Conversation:
+      type: object
+      required: [id, agentId, messageCount, createdAt, updatedAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        agentId:
+          type: string
+          format: uuid
+        title:
+          type: string
+          maxLength: 32
+          nullable: true
+          description: Auto-derived from the first user message; user-editable thereafter.
+        messageCount:
+          type: integer
+          minimum: 0
+          maximum: 64
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    ConversationPage:
+      allOf:
+        - $ref: '#/components/schemas/PageEnvelope'
+        - type: object
+          properties:
+            items:
+              type: array
+              items:
+                $ref: '#/components/schemas/Conversation'
+
+    MessageRole:
+      type: string
+      enum: [USER, ASSISTANT]
+      description: |
+        Only `USER` and `ASSISTANT` are persisted. Tool-call requests/results are transient and
+        are not exposed in the API.
+
+    Message:
+      type: object
+      required: [id, role, content, createdAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        role:
+          $ref: '#/components/schemas/MessageRole'
+        content:
+          type: string
+          minLength: 1
+          maxLength: 1024
+        createdAt:
+          type: string
+          format: date-time
+
+    MessagePage:
+      allOf:
+        - $ref: '#/components/schemas/PageEnvelope'
+        - type: object
+          properties:
+            items:
+              type: array
+              items:
+                $ref: '#/components/schemas/Message'
+
+    SendMessageRequest:
+      type: object
+      required: [content]
+      properties:
+        content:
+          type: string
+          minLength: 1
+          maxLength: 1024
+
+    # ----- SSE event payloads (documentation only) ------------------------
+
+    SseStartedEvent:
+      type: object
+      description: SSE `started` event payload.
+      required: [userMessageId, conversationId]
+      properties:
+        userMessageId:
+          type: string
+          format: uuid
+        conversationId:
+          type: string
+          format: uuid
+
+    SseDeltaEvent:
+      type: object
+      description: SSE `delta` event payload.
+      required: [text]
+      properties:
+        text:
+          type: string
+
+    SseCompletedEvent:
+      type: object
+      description: SSE `completed` event payload.
+      required: [assistantMessageId, messageCount]
+      properties:
+        assistantMessageId:
+          type: string
+          format: uuid
+        title:
+          type: string
+          maxLength: 32
+          nullable: true
+          description: Non-null only on the first turn (auto-derived title).
+        messageCount:
+          type: integer
+          minimum: 1
+          maximum: 64
+
+    SseStream:
+      type: string
+      description: |
+        Stream of SSE frames. Each frame is `event: <type>\ndata: <json>\n\n`.
+        Frame types and their JSON payloads:
+        - `started` → `SseStartedEvent`
+        - `delta` → `SseDeltaEvent`
+        - `completed` → `SseCompletedEvent`
+        - `error` → `ProblemDetails`

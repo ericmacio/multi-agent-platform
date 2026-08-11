@@ -1,0 +1,151 @@
+# Test-only configuration.
+#
+# When both src/main/resources/application.yaml and src/test/resources/application.yaml are
+# on the classpath, the test variant takes precedence and replaces the production one. We
+# therefore restate the app.* defaults here and provide test-friendly values for everything
+# the production yaml resolves from environment variables.
+#
+# Spring AI 1.1.0 ships several OpenAI auto-configurations that eagerly instantiate beans
+# at context startup, with a binary incompatibility against Spring Framework 7. The OpenAI
+# autoconfigs are excluded across the entire test suite; EPIC-09 will re-enable exactly
+# the ones it consumes.
+#
+# The MCP autoconfigs are also excluded so tests never spawn `npx` MCP subprocesses
+# (REQ-MCP-002). The McpServerCatalogAdapter handles the absence of the
+# McpStdioClientProperties bean by exposing an empty catalog (US-08-003); the
+# McpServerCatalogAdapterIntegrationTest supplies a hand-built McpStdioClientProperties
+# bean via @TestConfiguration to exercise the catalog wiring end-to-end.
+#
+# Persistence (DataSource / JPA / Flyway) is kept active for every test. Defaults point at
+# the locally-installed PostgreSQL described in SPECS.md. Override via the env vars
+# TEST_DB_URL / TEST_DB_USERNAME / TEST_DB_PASSWORD.
+
+spring:
+  application:
+    name: multi-agent-platform
+  autoconfigure:
+    # Spring AI 1.1.0 was compiled against Spring Framework 6.x and calls
+    # HttpHeaders.addAll(MultiValueMap) which now returns HttpHeaders in
+    # Spring Framework 7 — instantiating OpenAiApi throws NoSuchMethodError
+    # at bean creation. Until Spring AI ships a 4.0-compatible release, the
+    # OpenAI chat autoconfig is excluded and OpenAiChatClientAdapter consumes
+    # a manually-constructed ChatModel bean provided by test fixtures
+    # (US-09-004 / US-09-005). The MCP stdio/client autoconfigs are excluded
+    # so tests never spawn `npx` MCP subprocesses (REQ-MCP-002).
+    exclude: >-
+      org.springframework.ai.model.openai.autoconfigure.OpenAiAudioSpeechAutoConfiguration,
+      org.springframework.ai.model.openai.autoconfigure.OpenAiAudioTranscriptionAutoConfiguration,
+      org.springframework.ai.model.openai.autoconfigure.OpenAiChatAutoConfiguration,
+      org.springframework.ai.model.openai.autoconfigure.OpenAiEmbeddingAutoConfiguration,
+      org.springframework.ai.model.openai.autoconfigure.OpenAiImageAutoConfiguration,
+      org.springframework.ai.model.openai.autoconfigure.OpenAiModerationAutoConfiguration,
+      org.springframework.ai.mcp.client.common.autoconfigure.StdioTransportAutoConfiguration,
+      org.springframework.ai.mcp.client.common.autoconfigure.McpClientAutoConfiguration,
+      org.springframework.ai.mcp.client.common.autoconfigure.McpToolCallbackAutoConfiguration
+
+  ai:
+    openai:
+      # Test-only fake OpenAI key (REQ-LLM-003 fail-fast check). WireMock-based
+      # integration tests override spring.ai.openai.base-url via
+      # @DynamicPropertySource to route traffic at the fake server.
+      api-key: test-openai-key
+      chat:
+        options:
+          model: ${app.llm.openai.default-model}
+
+  datasource:
+    url: ${TEST_DB_URL:jdbc:postgresql://localhost:5432/multi_agent_test}
+    username: ${TEST_DB_USERNAME:postgres}
+    password: ${TEST_DB_PASSWORD:postgres}
+    # Bound the Hikari pool per Spring context. Spring Test caches multiple contexts
+    # across the suite (one per @DynamicPropertySource / @ActiveProfiles combination),
+    # and each context keeps an idle pool open. With Postgres' default
+    # max_connections=100, the unbounded default (pool size 10) exhausts connections
+    # once a handful of contexts are cached. Keeping each pool tiny lets the full
+    # integration suite run against a single local Postgres instance.
+    hikari:
+      maximum-pool-size: 2
+      minimum-idle: 0
+      connection-timeout: 10000
+      idle-timeout: 10000
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+
+  flyway:
+    enabled: true
+    # Two locations: the standard production migrations PLUS a test-only path
+    # carrying V900__bump_rate_limit_for_tests.sql, which raises the seeded
+    # rate-limit counters to non-throttling values so the broader integration
+    # suite is not denied by the EPIC-13 global Bucket4j filter. Tests that
+    # need to assert the production seed (10, 50) override locations back to
+    # `classpath:db/migration` via @DynamicPropertySource.
+    locations: classpath:db/migration,classpath:db/migration-test
+    clean-disabled: false
+    placeholders:
+      app_bootstrap_admin_email: bootstrap@example.test
+      app_bootstrap_admin_password_hash: $2a$10$abcdefghijklmnopqrstuuJqf2QHm/rEZx8L0a3T1aPgI8Vm/tnsW
+
+  mvc:
+    throw-exception-if-no-handler-found: true
+  web:
+    resources:
+      add-mappings: false
+
+# Test-profile parity with production: expose only /actuator/health,
+# show-details=never. Without this block, the test profile would inherit
+# Spring Boot defaults (no endpoints exposed except /actuator) and the
+# Actuator integration test would resolve a different surface than prod.
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      show-details: never
+
+app:
+  api:
+    base-path: /api/v1
+  cors:
+    allowed-origins:
+      - http://localhost:5173
+  security:
+    jwt:
+      lifetime: PT30M
+      # Test-only signing secret: 64 hex chars / 64 bytes UTF-8 — well above the 32-byte
+      # minimum HS256 requires. Any production env MUST override via JWT_SIGNING_SECRET.
+      signing-secret: test-only-jwt-signing-secret-with-at-least-thirty-two-bytes!
+  aws:
+    region: ${AWS_REGION:eu-west-3}
+  mcp:
+    filesystem:
+      # Relative default so tests run on a stock Windows laptop without admin rights.
+      # Per-test integration suites that exercise FilesystemMcpUserScopeAdapter
+      # (US-08-004) override MCP_FS_BASE to a JUnit @TempDir via
+      # @DynamicPropertySource.
+      base: ${MCP_FS_BASE:./var/lib/multi-agent/fs}
+  llm:
+    openai:
+      # Matches the production default; tests should never depend on OPENAI_MODEL.
+      default-model: gpt-4o-mini
+      # The production fallback beans declared in OpenAiConfig (ChatModel +
+      # LlmChatClient) are disabled in tests. Tests that need a ChatModel
+      # provide their own via @TestConfiguration (see
+      # SendMessageEndpointIntegrationTest.WireChatModel); the unit tests for
+      # OpenAiChatClientAdapter use a mocked ChatModel and bypass Spring.
+      fallback-bean:
+        enabled: false
+  streaming:
+    # SSE emitter timeout for POST /conversations/{id}/messages (EPIC-11). Short
+    # in tests so a hung integration test fails the suite quickly rather than
+    # blocking the whole run.
+    emitter-timeout: PT30S
+
+logging:
+  level:
+    root: WARN
+    com.cognizant.emk.multiagent: INFO
