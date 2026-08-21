@@ -123,6 +123,7 @@ app:
   cors:
     allowed-origins:
       - http://localhost:5173
+      - http://emk-multi-agent-spa.s3-website.eu-west-3.amazonaws.com
   security:
     jwt:
       lifetime: PT30M
